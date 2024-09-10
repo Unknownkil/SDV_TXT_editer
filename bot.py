@@ -1,4 +1,6 @@
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler
+from telegram.ext.filters import TEXT, Document
 import re
 
 # Function to replace master.mpd URLs in the file
@@ -8,52 +10,37 @@ def process_file(file_content, quality="240"):
     return updated_content
 
 # Start command handler
-def start(update, context):
-    update.message.reply_text("Send me a txt file 😘,I'm Txt-file-link-changer😉 and I will update them!😇")
+async def start(update: Update, context):
+    await update.message.reply_text("Send me a txt file 😘,I'm Txt-file-link-changer😉 and I will update them!😇")
 
 # File processing handler
-def handle_file(update, context):
-    # Get the file sent by the user
-    file = update.message.document.get_file()
-    file_content = file.download_as_bytearray().decode('utf-8')
+async def handle_file(update: Update, context):
+    file = await update.message.document.get_file()
+    file_content = await file.download_as_bytearray()
 
     # Process the file and update URLs
-    updated_content = process_file(file_content, "480")  # Use 240 quality as per your requirement
+    updated_content = process_file(file_content.decode('utf-8'), "240")
 
     # Save the updated content to a new file
     with open("updated_file.txt", "w") as f:
         f.write(updated_content)
 
     # Send the updated file back to the user
-    update.message.reply_document(document=open("updated_file.txt", "rb"))
-    update.message.reply_text("Here is your updated file!")
-
-# Error handler
-def error(update, context):
-    print(f"Update {update} caused error {context.error}")
+    await update.message.reply_document(document=open("updated_file.txt", "rb"))
+    await update.message.reply_text("Here is your updated file!")
 
 # Main function to setup the bot
-def main():
-    TOKEN = '6748460867:AAFzQkFcCfg1kqISiV4499pGxIcPtu4qe1w'  # Replace with your bot token
+async def main():
+    TOKEN = '6748460867:AAFzQkFcCfg1kqISiV4499pGxIcPtu4qe1w'
 
-    # Initialize the Updater and Dispatcher
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
+    application = ApplicationBuilder().token(TOKEN).build()
 
-    # Command handler for /start
-    dp.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(Document.MIME_TYPE("text/plain"), handle_file))
 
-    # File handler for processing uploaded text files
-    dp.add_handler(MessageHandler(Filters.document.mime_type("text/plain"), handle_file))
-
-    # Error handler
-    dp.add_error_handler(error)
-
-    # Start polling for updates from Telegram
-    updater.start_polling()
-
-    # Run the bot until stopped
-    updater.idle()
+    await application.start()
+    await application.idle()
 
 if __name__ == '__main__':
-    main()
+    import asyncio
+    asyncio.run(main())
